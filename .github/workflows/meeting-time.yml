@@ -5,15 +5,14 @@ on:
   workflow_dispatch:
     inputs:
       year:
-        description: 'Year (e.g. 2025)'
-        required: true
-        default: '2025'
+        description: 'Year (e.g. 2026). Leave empty to use current year'
+        required: false
+        default: '2026'
       month:
-        description: 'Month (1–12)'
-        required: true
-        default: '12'
+        description: 'Month (1-12). Leave empty to use current month'
+        required: false
       day:
-        description: 'Day (1–31)'
+        description: 'Day (1–31). Leave empty to use today'
         required: true
         default: '15'
       hour:
@@ -45,11 +44,18 @@ jobs:
         with:
           python-version: 3.12
 
+      - name: Determine date values
+        id: dates
+        run: |
+          echo "year=$(date +%Y)"     >> "$GITHUB_OUTPUT"
+          echo "month=$(date +%-m)"   >> "$GITHUB_OUTPUT"
+          echo "day=$(date +%-d)"     >> "$GITHUB_OUTPUT"
+
       - name: Run meeting time converter
         env:
-          YEAR: ${{ inputs.year }}
-          MONTH: ${{ inputs.month }}
-          DAY: ${{ inputs.day }}
+          YEAR:  ${{ steps.dates.outputs.year  || inputs.year  }}
+          MONTH: ${{ steps.dates.outputs.month || inputs.month }}
+          DAY:   ${{ steps.dates.outputs.day   || inputs.day   }}
           HOUR: ${{ inputs.hour }}
           MINUTE: ${{ inputs.minute }}
           TZ: ${{ inputs.timezone }}
