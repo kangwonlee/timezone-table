@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo, available_timezones
 CITY_ZONES = [
     ("San Diego", "America/Los_Angeles"),
     ("Phoenix", "America/Phoenix"),
+    ("Edmonton", "America/Edmonton"),
     ("Chicago", "America/Chicago"),
     ("New York", "America/New_York"),
     ("Lisbon", "Europe/Lisbon"),
