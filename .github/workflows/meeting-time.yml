@@ -48,6 +48,11 @@ jobs:
         with:
           python-version: 3.12
 
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install tzdata
+
       - name: Determine date values
         id: dates
         run: |
@@ -65,6 +70,8 @@ jobs:
           TZ: ${{ inputs.timezone }}
           DURATION: ${{ inputs.duration }}
         run: |
+          source .venv/bin/activate
+          uv pip list
           uv run timezone_table.py $YEAR $MONTH $DAY $HOUR $MINUTE "$TZ" $DURATION >> $GITHUB_STEP_SUMMARY
 
 # end .github/workflows/meeting-time.yml

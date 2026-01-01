@@ -4,20 +4,29 @@ from __future__ import annotations
 
 import datetime
 import sys
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, available_timezones
 
 
 # List of cities you want to show
 CITY_ZONES = [
     ("San Diego", "America/Los_Angeles"),
+    ("Phoenix", "America/Phoenix"),
+    ("Edmonton", "America/Edmonton"),
     ("Chicago", "America/Chicago"),
     ("New York", "America/New_York"),
+    ("Lisbon", "Europe/Lisbon"),
     ("London", "Europe/London"),
+    ("Zurich", "Europe/Zurich"),
+    ("Rome", "Europe/Rome"),
+    ("Oslo", "Europe/Oslo"),
     ("Paris", "Europe/Paris"),
     ("Berlin", "Europe/Berlin"),
-    ("New Delhi", "Asia/Kolkata"),
-    ("Sydney", "Australia/Sydney"),
+    ("Bucharest", "Europe/Bucharest"),
     ("Dubai", "Asia/Dubai"),
+    ("New Delhi", "Asia/Kolkata"),
+    ("Singapore", "Asia/Singapore"),
+    ("Seoul", "Asia/Seoul"),
+    ("Sydney", "Australia/Sydney"),
 ]
 
 
@@ -64,8 +73,17 @@ def main() -> None:
     print("| City         | Local Time          | Time Zone |")
     print("|--------------|---------------------|-----------|")
 
+    not_available = []
+
     for city, tz_str in CITY_ZONES:
-        print(format_meeting(meeting_start, meeting_end, city, tz_str))
+        if tz_str not in available_timezones():
+            not_available.append((city, tz_str))
+        else:
+            print(format_meeting(meeting_start, meeting_end, city, tz_str))
+    print("") # end of the table
+
+    for city, tz_str in not_available:
+        print((city, tz_str), "not available")
 
 
 if __name__ == "__main__":
