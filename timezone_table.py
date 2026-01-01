@@ -10,11 +10,11 @@ from zoneinfo import ZoneInfo
 # List of cities you want to show
 CITY_ZONES = [
     ("San Diego", "America/Los_Angeles"),
+    ("Phoenix", "America/Phoenix"),
     ("Chicago", "America/Chicago"),
     ("New York", "America/New_York"),
     ("Lisbon", "Europe/Lisbon"),
     ("London", "Europe/London"),
-    ("Lausanne", "Europe/Lausanne"),
     ("Rome", "Europe/Rome"),
     ("Oslo", "Europe/Oslo"),
     ("Paris", "Europe/Paris"),
