@@ -1,11 +1,17 @@
 # begin tests/test_timezone_table.py
 
 import datetime
+import pathlib
 import pytest
+import sys
 
 from io import StringIO
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
+
+test_folder = pathlib.Path(__file__).parent.resolve()
+project_folder = test_folder.parent.resolve()
+sys.path.insert(0, str(project_folder))
 
 from timezone_table import format_meeting, main, CITY_ZONES  # Assuming the script is in timezone_table.py
 
