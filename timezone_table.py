@@ -14,21 +14,8 @@ from zoneinfo import ZoneInfo, available_timezones, ZoneInfoNotFoundError
 
 # List of cities you want to show
 CITY_ZONES = [
-    ("San Diego", "America/Los_Angeles"),
-    ("Phoenix", "America/Phoenix"),
-    ("Edmonton", "America/Edmonton"),
-    ("Chicago", "America/Chicago"),
     ("New York", "America/New_York"),
-    ("Lisbon", "Europe/Lisbon"),
     ("London", "Europe/London"),
-    ("Zurich", "Europe/Zurich"),
-    ("Rome", "Europe/Rome"),
-    ("Oslo", "Europe/Oslo"),
-    ("Paris", "Europe/Paris"),
-    ("Berlin", "Europe/Berlin"),
-    ("Bucharest", "Europe/Bucharest"),
-    ("Dubai", "Asia/Dubai"),
-    ("New Delhi", "Asia/Kolkata"),
     ("Singapore", "Asia/Singapore"),
     ("Seoul", "Asia/Seoul"),
     ("Sydney", "Australia/Sydney"),

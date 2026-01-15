@@ -42,7 +42,7 @@ def test_main_valid_input(capsys, mock_argv):
     assert "# Meeting Time Converter" in output
     assert "**Original time:** 2026-01-14 10:00 PST (America/Los_Angeles)" in output
     assert "**Duration:** 60 minutes" in output
-    assert "| San Diego " in output and "10:00 – 11:00" in output and "PST" in output  # Fuzzy match for dynamic width
+    assert "| New York " in output and "13:00 – 14:00" in output and "EST" in output  # Fuzzy match for dynamic width
     assert "Unavailable timezones:" not in output  # Assuming all are available
 
 def test_main_invalid_timezone(mock_argv):
@@ -63,10 +63,10 @@ def test_main_sort_by_offset(capsys):
         main()
     captured = capsys.readouterr()
     output_lines = captured.out.splitlines()
-    # Check if table rows are sorted (e.g., San Diego first, then eastwards)
+    # Check if table rows are sorted (e.g., New York first, then eastwards)
     table_start = next(i for i, line in enumerate(output_lines) if line.startswith("| City"))
     first_city_row = output_lines[table_start + 2]  # After header and separator
-    assert "San Diego" in first_city_row  # Westernmost
+    assert "New York" in first_city_row  # Westernmost
 
 def test_unavailable_timezone(capsys, mock_argv):
     # Mock unavailable timezone
@@ -74,7 +74,7 @@ def test_unavailable_timezone(capsys, mock_argv):
         main()
     captured = capsys.readouterr()
     assert "**Unavailable timezones:**" in captured.out
-    assert "- San Diego: America/Los_Angeles" in captured.out
+    assert "- New York: America/New_York" in captured.out
 
 
 def test_read_city_zones_no_file(tmp_path):
