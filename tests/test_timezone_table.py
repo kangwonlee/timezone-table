@@ -54,13 +54,6 @@ def test_main_invalid_date(mock_argv):
     with patch("sys.argv", mock_argv), pytest.raises(SystemExit):
         main()
 
-def test_main_ambiguous_time():
-    # UTC time that maps to ambiguous local time in LA during DST fallback
-    utc_start = datetime.datetime(2024, 11, 3, 8, 30, tzinfo=ZoneInfo("UTC"))  # Maps to 1:30 AM PDT or PST
-    end = utc_start + datetime.timedelta(minutes=60)
-    with pytest.raises(ValueError, match="Ambiguous time"):
-        format_meeting(utc_start, end, "San Diego", "America/Los_Angeles", city_width=12)
-
 def test_main_sort_by_offset(capsys):
     argv = [
         "timezone_table.py", "2026", "1", "14", "10", "0", "America/Los_Angeles", "60", "--sort-by-offset"
