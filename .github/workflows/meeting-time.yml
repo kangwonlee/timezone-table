@@ -31,6 +31,10 @@ on:
         description: 'Duration in minutes'
         required: true
         default: '60'
+      generate_xlsx:
+        description: 'Generate 24-hour XLSX table? (true/false)'
+        required: false
+        default: 'false'
 
 permissions:
   contents: read
@@ -60,7 +64,7 @@ jobs:
           echo "month=$(date +%-m)"   >> "$GITHUB_OUTPUT"
           echo "day=$(date +%-d)"     >> "$GITHUB_OUTPUT"
 
-      - name: Run meeting time converter
+      - name: Run meeting time converter (Markdown summary)
         env:
           YEAR:  ${{ steps.dates.outputs.year  || inputs.year  }}
           MONTH: ${{ steps.dates.outputs.month || inputs.month }}
@@ -73,5 +77,24 @@ jobs:
           source .venv/bin/activate
           uv pip list
           uv run timezone_table.py $YEAR $MONTH $DAY $HOUR $MINUTE "$TZ" $DURATION >> $GITHUB_STEP_SUMMARY
+
+      - name: Generate 24-hour XLSX (if enabled)
+        if: inputs.generate_xlsx == 'true'
+        env:
+          YEAR:  ${{ steps.dates.outputs.year  || inputs.year  }}
+          MONTH: ${{ steps.dates.outputs.month || inputs.month }}
+          DAY:   ${{ steps.dates.outputs.day   || inputs.day   }}
+          TZ: ${{ inputs.timezone }}
+        run: |
+          source .venv/bin/activate
+          uv run timezone_table.py $YEAR $MONTH $DAY 0 0 "$TZ" 60 --generate-24hour-xlsx --output-file=24hour_timezones.xlsx
+
+      - name: Upload XLSX Artifact (if generated)
+        if: inputs.generate_xlsx == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: 24hour_timezones_${{ inputs.day }}
+          path: 24hour_timezones.xlsx
+          retention-days: 7  # Short retention for artifacts
 
 # end .github/workflows/meeting-time.yml

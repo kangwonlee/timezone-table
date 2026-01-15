@@ -10,7 +10,11 @@ import sys
 
 from typing import List, Union
 
+
+import openpyxl
+from openpyxl.styles import Font, PatternFill
 from zoneinfo import ZoneInfo, available_timezones, ZoneInfoNotFoundError
+
 
 # List of cities you want to show
 CITY_ZONES = [
@@ -44,7 +48,7 @@ def format_meeting(
     return f"| {city.ljust(city_width)} | {local_start.strftime('%H:%M')} – {local_end.strftime('%H:%M')} | {zone_abbr} |"
 
 
-def read_city_zones(cities_file: Union[str, pathlib.Path] = "city_zones.json") -> List[tuple[str, str]]:
+def read_city_zones(cities_file: Union[str, pathlib.Path] = "cities.json") -> List[tuple[str, str]]:
     path = pathlib.Path(cities_file)
     if not path.is_file():
         return CITY_ZONES
@@ -53,7 +57,14 @@ def read_city_zones(cities_file: Union[str, pathlib.Path] = "city_zones.json") -
     return [(item["city"], item["timezone"]) for item in data]
 
 
-def main() -> None:
+def parse_datetime(value:str) -> datetime.datetime:
+    try:
+        return datetime.datetime.strptime(value, "%Y-%m-%d %H:%M")  # Customize format as needed
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"Invalid datetime format: {value}")
+
+
+def create_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Generate a Markdown timezone table for a meeting.",
         epilog="Example: python timezone_table.py 2026 1 14 10 0 America/Los_Angeles 60"
@@ -66,8 +77,15 @@ def main() -> None:
     parser.add_argument("timezone", type=str, help="IANA timezone (e.g., America/Los_Angeles)")
     parser.add_argument("duration_minutes", type=int, help="Duration in minutes (positive integer)")
     parser.add_argument("--sort-by-offset", action="store_true", help="Sort cities by UTC offset (west to east)")
+    parser.add_argument("--generate-24hour-xlsx", action="store_true", help="Generate 24-hour XLSX table (default: false)")
+    parser.add_argument("--output-file", type=str, default="24hour_timezones.xlsx", help="Output file for XLSX")
+    return parser
 
-    args = parser.parse_args()
+
+def main(argv:List[str]) -> None:
+    parser = create_parser()
+
+    args = parser.parse_args(argv[1:])
 
     if args.duration_minutes <= 0:
         parser.error("Duration must be positive.")
@@ -118,6 +136,66 @@ def main() -> None:
         for city, tz_str in not_available:
             print(f"- {city}: {tz_str}")
 
+    if args.generate_24hour_xlsx:
+        base_start = meeting_start.replace(hour=0, minute=0, second=0, microsecond=0)
+        write_xl_table(args.timezone, base_start, meeting_start, CITY_ZONES, args.output_file)
+
+
+def write_xl_table(
+    timezone: str,
+    base_start: datetime.datetime,
+    meeting_start: datetime.datetime,
+    city_zones: List[tuple[str, str]],
+    output_file: Union[str, pathlib.Path] = "24hour_timezones.xlsx"
+):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "24-Hour Timezones"
+
+    # Header
+    header = [f"Input Hour ({timezone})"] + [f"{city} ({tz_str})" for city, tz_str in city_zones]
+    ws.append(header)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+
+    # Date row
+    date_row = ["Date", base_start.strftime('%Y-%m-%d')] + [""] * (len(city_zones) - 1)
+    ws.append(date_row)
+
+    # Colors
+    green_fill = PatternFill(start_color="FF90EE90", end_color="FF90EE90", fill_type="solid")  # Work hours
+    gray_fill = PatternFill(start_color="FFA9A9A9", end_color="FFA9A9A9", fill_type="solid")  # Sleep hours
+
+    # Data rows
+    for hour in range(24):
+        hour_start = base_start + datetime.timedelta(hours=hour)
+        row = [f"{hour:02}:00 {hour_start.strftime('%Z')}"]
+        for city, tz_str in city_zones:
+            if tz_str not in available_timezones():
+                row.append("Unavailable")
+                continue
+            try:
+                local_start = hour_start.astimezone(ZoneInfo(tz_str))
+                row.append(local_start.strftime('%H:%M %Z'))
+            except ValueError as e:
+                row.append(f"Error: {e}")
+        ws.append(row)
+
+            # Apply colors based on local hour
+        for col in range(2, len(row) + 1):
+            local_time_str = row[col-1]
+            if "Unavailable" in local_time_str or "Error" in local_time_str:
+                continue
+            local_hour = int(local_time_str.split(':')[0])
+            cell = ws.cell(row=ws.max_row, column=col)
+            if 9 <= local_hour < 17:  # Work (customize as needed)
+                cell.fill = green_fill
+            elif 0 <= local_hour < 7 or 22 <= local_hour < 24:  # Sleep
+                cell.fill = gray_fill
+
+    wb.save(output_file)
+    print(f"Generated 24-hour XLSX: {str(output_file)}")
+
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv)
