@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import json
+import pathlib
 import sys
+
+from typing import List, Union
+
 from zoneinfo import ZoneInfo, available_timezones, ZoneInfoNotFoundError
 
 # List of cities you want to show
@@ -33,6 +38,7 @@ def get_utc_offset(tz: ZoneInfo, dt: datetime.datetime) -> datetime.timedelta:
     """Get UTC offset for sorting."""
     return dt.astimezone(tz).utcoffset() or datetime.timedelta(0)
 
+
 def format_meeting(
     start: datetime.datetime,
     end: datetime.datetime,
@@ -49,6 +55,16 @@ def format_meeting(
         raise ValueError(f"Ambiguous time in {tz_str} due to DST transition.")
     zone_abbr = local_start.strftime("%Z")
     return f"| {city.ljust(city_width)} | {local_start.strftime('%H:%M')} – {local_end.strftime('%H:%M')} | {zone_abbr} |"
+
+
+def read_city_zones(cities_file: Union[str, pathlib.Path] = "city_zones.json") -> List[tuple[str, str]]:
+    path = pathlib.Path(cities_file)
+    if not path.is_file():
+        return CITY_ZONES
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return [(item["city"], item["timezone"]) for item in data]
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -85,6 +101,8 @@ def main() -> None:
         print(f"Invalid date/time: {e}")
         sys.exit(1)
 
+    CITY_ZONES = read_city_zones()
+
     # Optional: Sort by UTC offset
     if args.sort_by_offset:
         CITY_ZONES.sort(key=lambda x: get_utc_offset(ZoneInfo(x[1]), meeting_start))
@@ -112,6 +130,7 @@ def main() -> None:
         print("\n**Unavailable timezones:**")
         for city, tz_str in not_available:
             print(f"- {city}: {tz_str}")
+
 
 if __name__ == "__main__":
     main()
