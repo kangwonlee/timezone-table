@@ -41,17 +41,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
-          python-version: 3.12
+          python-version: 3.14
 
-      - name: Install dependencies
+      - name: Set up Python environment with uv
         run: |
           uv venv
-          uv pip install tzdata
+          uv sync  # Uses pyproject.toml for deps
 
       - name: Determine date values
         id: dates

@@ -1,0 +1,22 @@
+# begin pyproject.toml
+
+[project]
+name = "timezone_table"
+version = "0.1.0"
+description = "Meeting time converter with timezone tables"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "tzdata",      # For zoneinfo
+]
+
+[dependency-groups]
+dev = [
+  "pytest",      # For testing
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+# end pyproject.toml
