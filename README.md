@@ -61,8 +61,8 @@ This is great for visualizing availability across timezones for the entire day.
 - **More Options**: See `timezone_table.py` for additional features like handling ambiguous DST times.
 
 ### Tech
-- Python + built-in `zoneinfo` (no pytz, no bugs)
-- Powered by [**uv**](https://github.com/astral-sh/uv) – the fastest Python tool on earth
+- Python + built-in `zoneinfo`
+- Powered by [**uv**](https://github.com/astral-sh/uv) – fast Python dependency management
 - Pure GitHub Actions – zero setup
 
 Just fork, star, or reuse in your own team/org repo!
