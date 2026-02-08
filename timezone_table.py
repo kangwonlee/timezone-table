@@ -8,8 +8,6 @@ import json
 import pathlib
 import sys
 
-from typing import List, Union
-
 from zoneinfo import ZoneInfo, available_timezones, ZoneInfoNotFoundError
 
 
@@ -42,7 +40,7 @@ def format_meeting(
     return f"| {city.ljust(city_width)} | {local_start.strftime('%H:%M')} – {local_end.strftime('%H:%M')} | {zone_abbr} |"
 
 
-def read_city_zones(cities_file: Union[str, pathlib.Path] = "cities.json") -> List[tuple[str, str]]:
+def read_city_zones(cities_file: str | pathlib.Path = "cities.json") -> list[tuple[str, str]]:
     path = pathlib.Path(cities_file)
     if not path.is_file():
         return CITY_ZONES
@@ -74,10 +72,11 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument("--sort-by-offset", action="store_true", help="Sort cities by UTC offset (west to east)")
     parser.add_argument("--generate-24hour-xlsx", action="store_true", help="Generate 24-hour XLSX table (default: false)")
     parser.add_argument("--output-file", type=str, default="24hour_timezones.xlsx", help="Output file for XLSX")
+    parser.add_argument("--cities-file", type=str, default="cities.json", help="Path to cities JSON file (default: cities.json)")
     return parser
 
 
-def main(argv: List[str]) -> None:
+def main(argv: list[str]) -> None:
     parser = create_parser()
 
     args = parser.parse_args(argv[1:])
@@ -101,7 +100,7 @@ def main(argv: List[str]) -> None:
         print(f"Invalid date/time: {e}")
         sys.exit(1)
 
-    city_zones = read_city_zones()
+    city_zones = read_city_zones(args.cities_file)
 
     # Optional: Sort by UTC offset
     if args.sort_by_offset:
@@ -133,15 +132,14 @@ def main(argv: List[str]) -> None:
 
     if args.generate_24hour_xlsx:
         base_start = meeting_start.replace(hour=0, minute=0, second=0, microsecond=0)
-        write_xl_table(args.timezone, base_start, meeting_start, city_zones, args.output_file)
+        write_xl_table(args.timezone, base_start, city_zones, args.output_file)
 
 
 def write_xl_table(
     timezone: str,
     base_start: datetime.datetime,
-    meeting_start: datetime.datetime,
-    city_zones: List[tuple[str, str]],
-    output_file: Union[str, pathlib.Path] = "24hour_timezones.xlsx"
+    city_zones: list[tuple[str, str]],
+    output_file: str | pathlib.Path = "24hour_timezones.xlsx"
 ):
     import openpyxl
     from openpyxl.styles import Font, PatternFill
@@ -156,8 +154,14 @@ def write_xl_table(
     for cell in ws[1]:
         cell.font = Font(bold=True)
 
-    # Date row
-    date_row = ["Date", base_start.strftime('%Y-%m-%d')] + [""] * (len(city_zones) - 1)
+    # Date row — show each city's local date (may differ across the dateline)
+    date_row = ["Date"]
+    for city, tz_str in city_zones:
+        if tz_str not in available_timezones():
+            date_row.append("")
+        else:
+            local_midnight = base_start.astimezone(ZoneInfo(tz_str))
+            date_row.append(local_midnight.strftime('%Y-%m-%d'))
     ws.append(date_row)
 
     # Colors
