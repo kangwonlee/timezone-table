@@ -300,6 +300,31 @@ def test_main_with_xlsx_generation(capsys, mock_argv, tmp_path):
     assert (tmp_path / "test.xlsx").exists()  # File was created
 
 
+def test_main_with_current_date(capsys):
+    """Test that main() works with today's date, matching the workflow fallback.
+
+    The meeting-time.yml workflow falls back to today's date when
+    year/month/day inputs are left empty.  This test simulates that
+    by building argv from the current date and verifying main()
+    produces valid output.
+    """
+    now = datetime.datetime.now()
+    argv = [
+        "timezone_table.py",
+        str(now.year), str(now.month), str(now.day),
+        "10", "0", "Europe/Paris", "60",
+    ]
+    main(argv)
+    captured = capsys.readouterr()
+    output = captured.out
+
+    assert "# Meeting Time Converter" in output
+    expected_date = now.strftime("%Y-%m-%d")
+    assert expected_date in output
+    assert "**Duration:** 60 minutes" in output
+    assert "Europe/Paris" in output
+
+
 if "__main__" == __name__:
     pytest.main(["-v", __file__])
 
