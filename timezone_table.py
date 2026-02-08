@@ -10,9 +10,6 @@ import sys
 
 from typing import List, Union
 
-
-import openpyxl
-from openpyxl.styles import Font, PatternFill
 from zoneinfo import ZoneInfo, available_timezones, ZoneInfoNotFoundError
 
 
@@ -51,7 +48,15 @@ def read_city_zones(cities_file: Union[str, pathlib.Path] = "cities.json") -> Li
         return CITY_ZONES
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
-    return [(item["city"], item["timezone"]) for item in data]
+    result = []
+    for i, item in enumerate(data):
+        if not isinstance(item, dict) or "city" not in item or "timezone" not in item:
+            raise ValueError(
+                f"Invalid entry at index {i} in {cities_file}: "
+                f"expected dict with 'city' and 'timezone' keys, got {item!r}"
+            )
+        result.append((item["city"], item["timezone"]))
+    return result
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -72,7 +77,7 @@ def create_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv:List[str]) -> None:
+def main(argv: List[str]) -> None:
     parser = create_parser()
 
     args = parser.parse_args(argv[1:])
@@ -138,6 +143,9 @@ def write_xl_table(
     city_zones: List[tuple[str, str]],
     output_file: Union[str, pathlib.Path] = "24hour_timezones.xlsx"
 ):
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "24-Hour Timezones"
