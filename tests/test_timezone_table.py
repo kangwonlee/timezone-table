@@ -183,8 +183,7 @@ def xl_table_fixture(tmp_path_factory):
     """Fixture to call write_xl_table and load the workbook for reuse across tests."""
     tmp_dir = tmp_path_factory.mktemp("xl_table")
     timezone = "America/Los_Angeles"
-    meeting_start = datetime.datetime(2026, 1, 15, 14, 0, tzinfo=ZoneInfo(timezone))
-    base_start = meeting_start.replace(hour=0, minute=0)  # Compute here; function overrides but we pass it
+    base_start = datetime.datetime(2026, 1, 15, 0, 0, tzinfo=ZoneInfo(timezone))
     city_zones = [
         ("Los Angeles", "America/Los_Angeles"),
         ("Sydney", "Australia/Sydney"),
@@ -192,7 +191,7 @@ def xl_table_fixture(tmp_path_factory):
     output_file = tmp_dir / "test_24hour_timezones.xlsx"
 
     # Call the function under test
-    write_xl_table(timezone, base_start, meeting_start, city_zones, output_file)
+    write_xl_table(timezone, base_start, city_zones, output_file)
 
     # Load and yield the workbook and file path
     wb = openpyxl.load_workbook(output_file)
@@ -219,10 +218,10 @@ def test_write_xl_table_header_and_date(xl_table_fixture):
     assert ws["A1"].font.bold is True
     assert ws["B1"].font.bold is True
     assert ws["C1"].font.bold is True
-    # Date row
+    # Date row — per-city local dates at base_start (00:00 PST = 19:00 AEDT same day)
     assert ws["A2"].value == "Date"
-    assert ws["B2"].value == "2026-01-15"
-    assert ws["C2"].value is None  # Empty
+    assert ws["B2"].value == "2026-01-15"  # LA same date
+    assert ws["C2"].value == "2026-01-15"  # Sydney: 19:00 AEDT, still Jan 15
 
 
 def test_write_xl_table_data_rows(xl_table_fixture):
@@ -278,14 +277,18 @@ def test_create_parser():
     assert args.sort_by_offset is False
     assert args.generate_24hour_xlsx is False
     assert args.output_file == "24hour_timezones.xlsx"
+    assert args.cities_file == "cities.json"
 
     # Test with flags
     args_with_flags = parser.parse_args(
-        ["2026", "1", "14", "10", "0", "America/Los_Angeles", "60", "--sort-by-offset", "--generate-24hour-xlsx", "--output-file=myfile.xlsx"]
+        ["2026", "1", "14", "10", "0", "America/Los_Angeles", "60",
+         "--sort-by-offset", "--generate-24hour-xlsx",
+         "--output-file=myfile.xlsx", "--cities-file=custom.json"]
     )
     assert args_with_flags.sort_by_offset is True
     assert args_with_flags.generate_24hour_xlsx is True
     assert args_with_flags.output_file == "myfile.xlsx"
+    assert args_with_flags.cities_file == "custom.json"
 
 
 def test_main_with_xlsx_generation(capsys, mock_argv, tmp_path):
@@ -323,6 +326,55 @@ def test_main_with_current_date(capsys):
     assert expected_date in output
     assert "**Duration:** 60 minutes" in output
     assert "Europe/Paris" in output
+
+
+def test_main_with_cities_file(capsys, tmp_path):
+    """Test that --cities-file loads cities from a custom JSON file."""
+    custom_cities = [
+        {"city": "Tokyo", "timezone": "Asia/Tokyo"},
+        {"city": "Honolulu", "timezone": "Pacific/Honolulu"},
+    ]
+    cities_file = tmp_path / "custom_cities.json"
+    with open(cities_file, "w", encoding="utf-8") as f:
+        json.dump(custom_cities, f)
+
+    argv = [
+        "timezone_table.py",
+        "2026", "1", "14", "10", "0", "America/Los_Angeles", "60",
+        f"--cities-file={cities_file}",
+    ]
+    main(argv)
+    captured = capsys.readouterr()
+    output = captured.out
+
+    assert "Tokyo" in output
+    assert "Honolulu" in output
+    # Default cities should NOT appear
+    assert "New York" not in output
+    assert "London" not in output
+
+
+def test_write_xl_table_dateline_dates(tmp_path):
+    """Test that the date row shows per-city local dates across the dateline.
+
+    Use a base_start late enough in LA that Sydney crosses to the next
+    calendar day.  06:00 PST = 14:00 UTC → 01:00 AEDT next day.
+    """
+    import openpyxl
+
+    timezone = "America/Los_Angeles"
+    base_start = datetime.datetime(2026, 1, 15, 6, 0, tzinfo=ZoneInfo(timezone))
+    city_zones = [
+        ("Los Angeles", "America/Los_Angeles"),
+        ("Sydney", "Australia/Sydney"),
+    ]
+    output_file = tmp_path / "dateline_test.xlsx"
+    write_xl_table(timezone, base_start, city_zones, output_file)
+
+    wb = openpyxl.load_workbook(output_file)
+    ws = wb["24-Hour Timezones"]
+    assert ws["B2"].value == "2026-01-15"  # LA: same day
+    assert ws["C2"].value == "2026-01-16"  # Sydney: 01:00 AEDT next day
 
 
 if "__main__" == __name__:
