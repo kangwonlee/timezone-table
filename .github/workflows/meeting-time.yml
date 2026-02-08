@@ -7,14 +7,12 @@ on:
       year:
         description: 'Year (e.g. 2026). Leave empty to use current year'
         required: false
-        default: '2026'
       month:
         description: 'Month (1-12). Leave empty to use current month'
         required: false
       day:
         description: 'Day (1–31). Leave empty to use today'
-        required: true
-        default: '15'
+        required: false
       hour:
         description: 'Hour (0–23)'
         required: true
@@ -66,9 +64,9 @@ jobs:
 
       - name: Run meeting time converter (Markdown summary)
         env:
-          YEAR:  ${{ steps.dates.outputs.year  || inputs.year  }}
-          MONTH: ${{ steps.dates.outputs.month || inputs.month }}
-          DAY:   ${{ steps.dates.outputs.day   || inputs.day   }}
+          YEAR:  ${{ inputs.year  || steps.dates.outputs.year  }}
+          MONTH: ${{ inputs.month || steps.dates.outputs.month }}
+          DAY:   ${{ inputs.day   || steps.dates.outputs.day   }}
           HOUR: ${{ inputs.hour }}
           MINUTE: ${{ inputs.minute }}
           TZ: ${{ inputs.timezone }}
@@ -81,9 +79,9 @@ jobs:
       - name: Generate 24-hour XLSX (if enabled)
         if: inputs.generate_xlsx == 'true'
         env:
-          YEAR:  ${{ steps.dates.outputs.year  || inputs.year  }}
-          MONTH: ${{ steps.dates.outputs.month || inputs.month }}
-          DAY:   ${{ steps.dates.outputs.day   || inputs.day   }}
+          YEAR:  ${{ inputs.year  || steps.dates.outputs.year  }}
+          MONTH: ${{ inputs.month || steps.dates.outputs.month }}
+          DAY:   ${{ inputs.day   || steps.dates.outputs.day   }}
           TZ: ${{ inputs.timezone }}
         run: |
           source .venv/bin/activate
