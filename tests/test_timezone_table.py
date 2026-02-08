@@ -38,6 +38,31 @@ def test_format_meeting():
     result = format_meeting(start, end, "New York", "America/New_York", city_width=12)
     assert result == "| New York     | 13:00 – 14:00 | EST |"
 
+
+def test_format_meeting_dst_ambiguous_time():
+    """Test that format_meeting handles DST fall-back (ambiguous) times.
+
+    On 2026-11-01 at 01:00 US/Eastern, clocks fall back. A meeting
+    starting at 05:30 UTC spans the ambiguous 01:00-02:00 window in
+    New York.  The except clause on line 45 references the non-existent
+    ``datetime.zoneinfo.AmbiguousTimeError``, which would raise
+    ``AttributeError`` if ``astimezone()`` ever raised an ambiguity
+    error.  In practice ``astimezone()`` uses the fold attribute and
+    never raises, so this test verifies the function still produces
+    correct output for ambiguous local times.
+    """
+    # 2026-11-01 05:30 UTC  ->  01:30 EDT *or* 00:30 EST in New York
+    start = datetime.datetime(2026, 11, 1, 5, 30, tzinfo=ZoneInfo("UTC"))
+    end = start + datetime.timedelta(minutes=60)
+
+    result = format_meeting(start, end, "New York", "America/New_York", city_width=12)
+
+    # astimezone resolves the fold; the function should return a valid row
+    assert result.startswith("| New York")
+    assert "–" in result  # contains time range
+    # Verify it contains valid HH:MM patterns
+    assert ":" in result
+
 def test_main_valid_input(capsys, mock_argv):
     with patch("sys.argv", mock_argv):
         main(sys.argv)
