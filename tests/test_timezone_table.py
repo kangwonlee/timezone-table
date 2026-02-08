@@ -139,7 +139,7 @@ def test_read_city_zones_invalid_json(tmp_path):
 
 
 def test_read_city_zones_wrong_structure(tmp_path):
-    # Test JSON with missing keys raises KeyError
+    # Test JSON with missing keys raises ValueError with descriptive message
     wrong_data = [
         {"city": "Test City"},  # Missing "timezone"
         {"timezone": "Europe/Test"}  # Missing "city"
@@ -148,7 +148,7 @@ def test_read_city_zones_wrong_structure(tmp_path):
     with open(wrong_file, "w", encoding="utf-8") as f:
         json.dump(wrong_data, f)
 
-    with pytest.raises(KeyError):
+    with pytest.raises(ValueError, match=r"Invalid entry at index 0"):
         read_city_zones(wrong_file)
 
 
