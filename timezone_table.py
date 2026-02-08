@@ -39,11 +39,8 @@ def format_meeting(
 ) -> str:
     """Format a table row for the meeting in local time."""
     tz = ZoneInfo(tz_str)
-    try:
-        local_start = start.astimezone(tz)
-        local_end = end.astimezone(tz)
-    except datetime.zoneinfo.AmbiguousTimeError:
-        raise ValueError(f"Ambiguous time in {tz_str} due to DST transition.")
+    local_start = start.astimezone(tz)
+    local_end = end.astimezone(tz)
     zone_abbr = local_start.strftime("%Z")
     return f"| {city.ljust(city_width)} | {local_start.strftime('%H:%M')} – {local_end.strftime('%H:%M')} | {zone_abbr} |"
 
@@ -55,13 +52,6 @@ def read_city_zones(cities_file: Union[str, pathlib.Path] = "cities.json") -> Li
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     return [(item["city"], item["timezone"]) for item in data]
-
-
-def parse_datetime(value:str) -> datetime.datetime:
-    try:
-        return datetime.datetime.strptime(value, "%Y-%m-%d %H:%M")  # Customize format as needed
-    except ValueError:
-        raise argparse.ArgumentTypeError(f"Invalid datetime format: {value}")
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -106,14 +96,14 @@ def main(argv:List[str]) -> None:
         print(f"Invalid date/time: {e}")
         sys.exit(1)
 
-    CITY_ZONES = read_city_zones()
+    city_zones = read_city_zones()
 
     # Optional: Sort by UTC offset
     if args.sort_by_offset:
-        CITY_ZONES.sort(key=lambda x: get_utc_offset(ZoneInfo(x[1]), meeting_start))
+        city_zones.sort(key=lambda x: get_utc_offset(ZoneInfo(x[1]), meeting_start))
 
     # Dynamic city width
-    city_width = max(len(city) for city, _ in CITY_ZONES) + 2  # Padding
+    city_width = max(len(city) for city, _ in city_zones) + 2  # Padding
 
     print("# Meeting Time Converter\n")
     print(f"**Original time:** {meeting_start.strftime('%Y-%m-%d %H:%M %Z')} ({args.timezone})")
@@ -122,7 +112,7 @@ def main(argv:List[str]) -> None:
     print(f"|{'-' * (city_width + 2)}|---------------------|-----------|")
 
     not_available = []
-    for city, tz_str in CITY_ZONES:
+    for city, tz_str in city_zones:
         if tz_str not in available_timezones():
             not_available.append((city, tz_str))
             continue
@@ -138,7 +128,7 @@ def main(argv:List[str]) -> None:
 
     if args.generate_24hour_xlsx:
         base_start = meeting_start.replace(hour=0, minute=0, second=0, microsecond=0)
-        write_xl_table(args.timezone, base_start, meeting_start, CITY_ZONES, args.output_file)
+        write_xl_table(args.timezone, base_start, meeting_start, city_zones, args.output_file)
 
 
 def write_xl_table(

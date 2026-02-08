@@ -44,12 +44,9 @@ def test_format_meeting_dst_ambiguous_time():
 
     On 2026-11-01 at 01:00 US/Eastern, clocks fall back. A meeting
     starting at 05:30 UTC spans the ambiguous 01:00-02:00 window in
-    New York.  The except clause on line 45 references the non-existent
-    ``datetime.zoneinfo.AmbiguousTimeError``, which would raise
-    ``AttributeError`` if ``astimezone()`` ever raised an ambiguity
-    error.  In practice ``astimezone()`` uses the fold attribute and
-    never raises, so this test verifies the function still produces
-    correct output for ambiguous local times.
+    New York.  ``astimezone()`` resolves this via the fold attribute,
+    so this test verifies the function produces correct output for
+    ambiguous local times.
     """
     # 2026-11-01 05:30 UTC  ->  01:30 EDT *or* 00:30 EST in New York
     start = datetime.datetime(2026, 11, 1, 5, 30, tzinfo=ZoneInfo("UTC"))
