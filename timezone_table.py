@@ -36,7 +36,9 @@ def format_meeting(
     tz = ZoneInfo(tz_str)
     local_start = start.astimezone(tz)
     local_end = end.astimezone(tz)
-    zone_abbr = local_start.strftime("%Z")
+    start_abbr = local_start.strftime("%Z")
+    end_abbr = local_end.strftime("%Z")
+    zone_abbr = start_abbr if start_abbr == end_abbr else f"{start_abbr}→{end_abbr}"
     return f"| {city.ljust(city_width)} | {local_start.strftime('%H:%M')} – {local_end.strftime('%H:%M')} | {zone_abbr} |"
 
 
@@ -95,10 +97,25 @@ def main(argv: list[str]) -> None:
         meeting_start = datetime.datetime(
             args.year, args.month, args.day, args.hour, args.minute, tzinfo=tz
         )
-        meeting_end = meeting_start + datetime.timedelta(minutes=args.duration_minutes)
     except ValueError as e:
         print(f"Invalid date/time: {e}")
         sys.exit(1)
+
+    # Detect DST gap: if the wall-clock time doesn't survive a UTC round-trip,
+    # it fell inside a spring-forward gap.
+    utc_instant = meeting_start.astimezone(datetime.timezone.utc)
+    round_trip = utc_instant.astimezone(tz)
+    if round_trip.replace(fold=0) != meeting_start.replace(fold=0):
+        print(
+            f"Warning: {args.hour}:{args.minute:02d} does not exist in "
+            f"{args.timezone} on this date (DST gap). "
+            f"Using {round_trip.strftime('%H:%M %Z')} instead."
+        )
+        meeting_start = round_trip
+
+    # Compute end time in UTC so the duration is real elapsed time,
+    # not wall-clock time (which breaks across DST transitions).
+    meeting_end = utc_instant + datetime.timedelta(minutes=args.duration_minutes)
 
     city_zones = read_city_zones(args.cities_file)
 
@@ -131,7 +148,11 @@ def main(argv: list[str]) -> None:
             print(f"- {city}: {tz_str}")
 
     if args.generate_24hour_xlsx:
-        base_start = meeting_start.replace(hour=0, minute=0, second=0, microsecond=0)
+        # Build midnight from the local date to avoid .replace() across DST boundaries.
+        local_date = meeting_start.astimezone(tz).date()
+        base_start = datetime.datetime(
+            local_date.year, local_date.month, local_date.day, tzinfo=tz
+        )
         write_xl_table(args.timezone, base_start, city_zones, args.output_file)
 
 
@@ -168,31 +189,34 @@ def write_xl_table(
     green_fill = PatternFill(start_color="FF90EE90", end_color="FF90EE90", fill_type="solid")  # Work hours
     gray_fill = PatternFill(start_color="FFA9A9A9", end_color="FFA9A9A9", fill_type="solid")  # Sleep hours
 
-    # Data rows
+    # Iterate in UTC so each row is a real, distinct instant —
+    # wall-clock arithmetic would create phantom or missing hours on DST days.
+    base_utc = base_start.astimezone(datetime.timezone.utc)
     for hour in range(24):
-        hour_start = base_start + datetime.timedelta(hours=hour)
-        row = [f"{hour:02}:00 {hour_start.strftime('%Z')}"]
+        hour_utc = base_utc + datetime.timedelta(hours=hour)
+        hour_local = hour_utc.astimezone(ZoneInfo(timezone))
+        row = [hour_local.strftime('%H:%M %Z')]
         for city, tz_str in city_zones:
             if tz_str not in available_timezones():
                 row.append("Unavailable")
                 continue
             try:
-                local_start = hour_start.astimezone(ZoneInfo(tz_str))
+                local_start = hour_utc.astimezone(ZoneInfo(tz_str))
                 row.append(local_start.strftime('%H:%M %Z'))
             except ValueError as e:
                 row.append(f"Error: {e}")
         ws.append(row)
 
-            # Apply colors based on local hour
+        # Apply colors based on local hour
         for col in range(2, len(row) + 1):
-            local_time_str = row[col-1]
+            local_time_str = row[col - 1]
             if "Unavailable" in local_time_str or "Error" in local_time_str:
                 continue
             local_hour = int(local_time_str.split(':')[0])
             cell = ws.cell(row=ws.max_row, column=col)
-            if 9 <= local_hour < 17:  # Work (customize as needed)
+            if 9 <= local_hour < 17:
                 cell.fill = green_fill
-            elif 0 <= local_hour < 7 or 22 <= local_hour < 24:  # Sleep
+            elif 0 <= local_hour < 7 or 22 <= local_hour < 24:
                 cell.fill = gray_fill
 
     wb.save(output_file)

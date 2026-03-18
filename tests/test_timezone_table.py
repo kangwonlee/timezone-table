@@ -377,6 +377,136 @@ def test_write_xl_table_dateline_dates(tmp_path):
     assert ws["C2"].value == "2026-01-16"  # Sydney: 01:00 AEDT next day
 
 
+## ── DST-focused tests ──────────────────────────────────────────────────
+
+
+def test_format_meeting_cross_dst_spring_forward():
+    """Meeting spanning spring-forward shows both zone abbreviations.
+
+    US 2026-03-08: clocks skip 02:00 EST → 03:00 EDT.
+    A meeting at 01:00 EST lasting 120 real minutes ends at 04:00 EDT.
+    """
+    start = datetime.datetime(2026, 3, 8, 1, 0, tzinfo=ZoneInfo("America/New_York"))
+    # Duration in UTC (real elapsed time)
+    end = (
+        start.astimezone(datetime.timezone.utc)
+        + datetime.timedelta(minutes=120)
+    )
+    result = format_meeting(start, end, "New York", "America/New_York", city_width=12)
+    assert "01:00 – 04:00" in result
+    assert "EST→EDT" in result
+
+
+def test_format_meeting_cross_dst_fall_back():
+    """Meeting spanning fall-back shows both zone abbreviations.
+
+    US 2026-11-01: clocks repeat 01:00–02:00 (EDT → EST).
+    A meeting at 00:30 EDT lasting 120 real minutes ends at 01:30 EST.
+    """
+    start = datetime.datetime(2026, 11, 1, 0, 30, tzinfo=ZoneInfo("America/New_York"))
+    end = (
+        start.astimezone(datetime.timezone.utc)
+        + datetime.timedelta(minutes=120)
+    )
+    result = format_meeting(start, end, "New York", "America/New_York", city_width=12)
+    assert "00:30 – 01:30" in result
+    assert "EDT→EST" in result
+
+
+def test_main_spring_forward_gap_warning(capsys, tmp_path):
+    """Requesting a time inside the spring-forward gap emits a warning.
+
+    US 2026-03-08 02:30 America/New_York does not exist.
+    """
+    cities_file = tmp_path / "cities.json"
+    cities_file.write_text(json.dumps([
+        {"city": "New York", "timezone": "America/New_York"},
+    ]))
+    argv = [
+        "timezone_table.py",
+        "2026", "3", "8", "2", "30", "America/New_York", "60",
+        f"--cities-file={cities_file}",
+    ]
+    main(argv)
+    captured = capsys.readouterr()
+    assert "Warning" in captured.out
+    assert "does not exist" in captured.out
+    assert "DST gap" in captured.out
+    # Should use the post-gap time instead
+    assert "03:30 EDT" in captured.out
+
+
+def test_main_duration_real_time_across_spring_forward(capsys, tmp_path):
+    """A 60-min meeting starting at 01:30 EST across spring-forward ends at 03:30 EDT.
+
+    Wall-clock arithmetic would wrongly give 02:30 (in the gap).
+    Real-time arithmetic: 01:30 EST = 06:30 UTC, +60 min = 07:30 UTC = 03:30 EDT.
+    """
+    cities_file = tmp_path / "cities.json"
+    cities_file.write_text(json.dumps([
+        {"city": "New York", "timezone": "America/New_York"},
+    ]))
+    argv = [
+        "timezone_table.py",
+        "2026", "3", "8", "1", "30", "America/New_York", "60",
+        f"--cities-file={cities_file}",
+    ]
+    main(argv)
+    captured = capsys.readouterr()
+    assert "01:30 – 03:30" in captured.out
+    assert "EST→EDT" in captured.out
+
+
+def test_write_xl_table_spring_forward(tmp_path):
+    """XLSX on a spring-forward day shows the DST transition correctly.
+
+    US 2026-03-08 spring-forward: 02:00 PST → 03:00 PDT.
+    Iterating in UTC means row labels jump from 01:00 PST to 03:00 PDT,
+    and no phantom "02:00 PST" row appears.
+    """
+    timezone = "America/Los_Angeles"
+    base_start = datetime.datetime(2026, 3, 8, 0, 0, tzinfo=ZoneInfo(timezone))
+    city_zones = [("Los Angeles", "America/Los_Angeles")]
+    output_file = tmp_path / "spring_forward.xlsx"
+    write_xl_table(timezone, base_start, city_zones, output_file)
+
+    wb = openpyxl.load_workbook(output_file)
+    ws = wb["24-Hour Timezones"]
+    # Collect all first-column labels (the input-timezone local times)
+    labels = [ws.cell(row=r, column=1).value for r in range(3, 27)]
+
+    # 02:00 PST must NOT appear (it's in the gap)
+    assert not any("02:00 PST" in lbl for lbl in labels)
+    # 03:00 PDT must appear (post-transition)
+    assert any("03:00 PDT" in lbl for lbl in labels)
+    # The label before 03:00 PDT should be 01:00 PST
+    assert any("01:00 PST" in lbl for lbl in labels)
+
+
+def test_write_xl_table_fall_back(tmp_path):
+    """XLSX on a fall-back day shows the repeated hour correctly.
+
+    US 2026-11-01 fall-back: 02:00 EDT → 01:00 EST.
+    Iterating in UTC means 01:00 appears twice — once as EDT, once as EST.
+    """
+    timezone = "America/Los_Angeles"
+    base_start = datetime.datetime(2026, 11, 1, 0, 0, tzinfo=ZoneInfo(timezone))
+    city_zones = [("New York", "America/New_York")]
+    output_file = tmp_path / "fall_back.xlsx"
+    write_xl_table(timezone, base_start, city_zones, output_file)
+
+    wb = openpyxl.load_workbook(output_file)
+    ws = wb["24-Hour Timezones"]
+    # Collect New York column values (column B)
+    ny_vals = [ws.cell(row=r, column=2).value for r in range(3, 27)]
+
+    # Should contain both 01:00 EDT and 01:00 EST
+    has_edt = any("01:00 EDT" in v for v in ny_vals)
+    has_est = any("01:00 EST" in v for v in ny_vals)
+    assert has_edt, f"Expected '01:00 EDT' in {ny_vals}"
+    assert has_est, f"Expected '01:00 EST' in {ny_vals}"
+
+
 if "__main__" == __name__:
     pytest.main(["-v", __file__])
 
