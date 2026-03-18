@@ -488,8 +488,11 @@ def test_write_xl_table_fall_back(tmp_path):
 
     US 2026-11-01 fall-back: 02:00 EDT → 01:00 EST.
     Iterating in UTC means 01:00 appears twice — once as EDT, once as EST.
+
+    We use America/New_York as the base timezone so midnight EDT (04:00 UTC)
+    is before the 06:00 UTC fall-back transition.
     """
-    timezone = "America/Los_Angeles"
+    timezone = "America/New_York"
     base_start = datetime.datetime(2026, 11, 1, 0, 0, tzinfo=ZoneInfo(timezone))
     city_zones = [("New York", "America/New_York")]
     output_file = tmp_path / "fall_back.xlsx"
