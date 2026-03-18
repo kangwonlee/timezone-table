@@ -60,6 +60,10 @@ This is great for visualizing availability across timezones for the entire day.
 - **Sorting**: By default, cities are in the order listed. To sort west-to-east (by UTC offset), edit the workflow YAML to add `--sort-by-offset` to the `uv run` command.
 - **More Options**: See `timezone_table.py` for additional features like handling ambiguous DST times.
 
+### Important
+> **Versions before v0.2.0 have incorrect DST/summer-time handling.**
+> Duration arithmetic used wall-clock time instead of real elapsed time, producing wrong meeting end times across spring-forward and fall-back boundaries. The 24-hour XLSX table also generated phantom rows for non-existent gap times. Please use v0.2.0 or later.
+
 ### Tech
 - Python + built-in `zoneinfo`
 - Powered by [**uv**](https://github.com/astral-sh/uv) – fast Python dependency management
